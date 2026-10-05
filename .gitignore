@@ -1,0 +1,35 @@
+# Environment / secrets
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Django
+*.sqlite3
+.coverage
+htmlcov/
+
+# Pytest
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend build
+dist/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
