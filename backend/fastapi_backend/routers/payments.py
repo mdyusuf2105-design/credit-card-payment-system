@@ -59,9 +59,11 @@ def process_payment(
         payment_id=payment.id,
         amount=payment.amount,
         status=payment.status,
-    )   
+    )
+
     db.add(transaction)
     db.commit()
+    db.refresh(transaction)
     db.refresh(payment)
 
     return payment
