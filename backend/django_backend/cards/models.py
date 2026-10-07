@@ -31,6 +31,12 @@ class Card(models.Model):
         max_length=100
     )
 
+    credit_limit = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=500000
+    )
+
     expiry_month = models.PositiveSmallIntegerField()
 
     expiry_year = models.PositiveSmallIntegerField()

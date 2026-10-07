@@ -216,3 +216,25 @@ export async function getProfile() {
 
   return data;
 }
+
+export async function getDashboardSummary() {
+  const token = localStorage.getItem("access_token");
+
+  const response = await fetch(
+    "http://127.0.0.1:8001/dashboard/summary",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.detail || "Failed to load dashboard");
+  }
+
+  return data;
+}
