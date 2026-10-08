@@ -7,6 +7,7 @@ RUN apt-get update \
        pkg-config \
        default-libmysqlclient-dev \
        build-essential \
+       fonts-dejavu \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

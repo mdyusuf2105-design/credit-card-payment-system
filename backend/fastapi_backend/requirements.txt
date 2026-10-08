@@ -34,3 +34,4 @@ uvicorn==0.54.0
 pytest==9.1.1
 httpx==0.28.1
 python-jose[cryptography]
+reportlab==4.4.4

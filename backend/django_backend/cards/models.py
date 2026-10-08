@@ -37,6 +37,8 @@ class Card(models.Model):
         default=500000
     )
 
+    is_blocked = models.BooleanField(default=False)
+    
     expiry_month = models.PositiveSmallIntegerField()
 
     expiry_year = models.PositiveSmallIntegerField()

@@ -238,3 +238,88 @@ export async function getDashboardSummary() {
 
   return data;
 }
+
+export async function getAdminCards() {
+  const token = localStorage.getItem("access_token");
+
+  const response = await fetch(
+    "http://127.0.0.1:8000/api/cards/admin/",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || data.error || "Failed to load cards");
+  }
+
+  return response.json();
+}
+
+export async function updateAdminCard(cardId, payload) {
+  const token = localStorage.getItem("access_token");
+
+  const response = await fetch(
+    `http://127.0.0.1:8000/api/cards/admin/${cardId}/`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(
+      data.detail || data.error || "Failed to update card"
+    );
+  }
+
+  return response.json();
+}
+export async function downloadMonthlyStatement(year, month) {
+  const token = localStorage.getItem("access_token");
+
+  const response = await fetch(
+    `http://127.0.0.1:8001/statements/monthly?year=${year}&month=${month}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    let message = "Failed to download monthly statement";
+
+    try {
+      const data = await response.json();
+      message = data.detail || message;
+    } catch {
+      // PDF/API error response was not JSON
+    }
+
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `monthly_statement_${year}_${String(month).padStart(2, "0")}.pdf`;
+
+  document.body.appendChild(link);
+  link.click();
+
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
