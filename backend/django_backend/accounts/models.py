@@ -4,8 +4,10 @@ from django.db import models
 
 class User(AbstractUser):
     ROLE_CHOICES = (
-        ('customer', 'Customer'),
-        ('admin', 'Admin'),
+        ("customer", "Customer"),
+        ("admin", "Admin"),
+        ("support", "Support"),
+        ("read_only", "Read-Only"),
     )
 
     email = models.EmailField(unique=True)
