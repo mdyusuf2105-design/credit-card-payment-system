@@ -85,53 +85,6 @@ export async function processPayment(paymentId) {
   return data;
 }
 
-export async function getTransactions(filters = {}) {
-  const token = localStorage.getItem("access_token");
-
-  const params = new URLSearchParams();
-
-  if (filters.status) {
-    params.append("status", filters.status);
-  }
-
-  if (filters.min_amount) {
-    params.append("min_amount", filters.min_amount);
-  }
-
-  if (filters.max_amount) {
-    params.append("max_amount", filters.max_amount);
-  }
-
-  if (filters.start_date) {
-    params.append("start_date", filters.start_date);
-  }
-
-  if (filters.end_date) {
-    params.append("end_date", filters.end_date);
-  }
-
-  const queryString = params.toString();
-
-  const url = queryString
-    ? `http://127.0.0.1:8000/api/transactions/?${queryString}`
-    : "http://127.0.0.1:8000/api/transactions/";
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.detail || "Failed to load transactions");
-  }
-
-  return data;
-}
 
 export async function getAdminDashboard() {
   const token = localStorage.getItem("access_token");
@@ -322,4 +275,51 @@ export async function downloadMonthlyStatement(year, month) {
 
   link.remove();
   window.URL.revokeObjectURL(url);
+}
+
+export async function getTransactions(filters = {}) {
+  const token = localStorage.getItem("access_token");
+  const params = new URLSearchParams();
+
+  if (filters.status) params.append("status", filters.status);
+  if (filters.min_amount) params.append("min_amount", filters.min_amount);
+  if (filters.max_amount) params.append("max_amount", filters.max_amount);
+  if (filters.start_date) params.append("start_date", filters.start_date);
+  if (filters.end_date) params.append("end_date", filters.end_date);
+  if (filters.masked_card) params.append("masked_card", filters.masked_card);
+  if (filters.page) params.append("page", filters.page);
+  if (filters.page_size) params.append("page_size", filters.page_size);
+
+  const queryString = params.toString();
+  const url = queryString
+    ? `${API_BASE_URL}/transactions/?${queryString}`
+    : `${API_BASE_URL}/transactions/`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.includes("application/json")) {
+    const body = await response.text();
+    throw new Error(
+      `Transactions API returned non-JSON (HTTP ${response.status}). Check the API URL. Response: ${body.slice(0, 120)}`
+    );
+  }
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.detail || data.error || "Failed to load transactions"
+    );
+  }
+
+  // Django REST Framework pagination returns { results: [...] }.
+  return Array.isArray(data) ? data : (data.results || []);
 }

@@ -1,32 +1,52 @@
+import csv
+
+from django.db import connection
+from django.db.models import Sum
+from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Count, Sum
-from django.utils import timezone
 
+from accounts.permissions import IsAdminRole
 from .models import AdminLog, Transaction
 from .serializers import TransactionSerializer
+
+
+class TransactionPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 class TransactionListView(generics.ListAPIView):
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = TransactionPagination
+
 
     def get_queryset(self):
-        queryset = Transaction.objects.filter(
-            user=self.request.user
-        ).order_by('-created_at')
+        user = self.request.user
 
-        status = self.request.query_params.get('status')
-        min_amount = self.request.query_params.get('min_amount')
-        max_amount = self.request.query_params.get('max_amount')
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
+        if user.role in ("admin", "support", "read_only"):
+            queryset = Transaction.objects.all()
+        else:
+            queryset = Transaction.objects.filter(user=user)
 
-        if status:
-            queryset = queryset.filter(status=status.upper())
+        params = self.request.query_params
+
+        status_value = params.get("status")
+        min_amount = params.get("min_amount")
+        max_amount = params.get("max_amount")
+        start_date = params.get("start_date")
+        end_date = params.get("end_date")
+        masked_card = params.get("masked_card")
+        ordering = params.get("ordering", "-created_at")
+
+        if status_value:
+            queryset = queryset.filter(status__iexact=status_value)
 
         if min_amount:
             queryset = queryset.filter(amount__gte=min_amount)
@@ -35,46 +55,36 @@ class TransactionListView(generics.ListAPIView):
             queryset = queryset.filter(amount__lte=max_amount)
 
         if start_date:
-            queryset = queryset.filter(
-                created_at__date__gte=start_date
-            )
+            queryset = queryset.filter(created_at__date__gte=start_date)
 
         if end_date:
-            queryset = queryset.filter(
-                created_at__date__lte=end_date
-            )
+            queryset = queryset.filter(created_at__date__lte=end_date)
+        masked_card = self.request.query_params.get("masked_card")
+        if masked_card:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id
+                    FROM payments
+                    WHERE card_id IN (
+                        SELECT id
+                        FROM cards_card
+                        WHERE masked_card LIKE %s
+                    )
+                    """,
+                    [f"%{masked_card}%"],
+                )
+                payment_ids = [row[0] for row in cursor.fetchall()]
 
-        return queryset
+            queryset = queryset.filter(payment_id__in=payment_ids)
 
-class AdminDashboardView(APIView):
-    permission_classes = [IsAdminUser]
+        allowed_ordering = {
+            "created_at", "-created_at",
+            "amount", "-amount",
+            "status", "-status",
+        }
 
-    def get(self, request):
-        AdminLog.objects.create(
-            admin=request.user,
-            action="Viewed Admin Dashboard"
-        )
-        today = timezone.localdate()
+        if ordering not in allowed_ordering:
+            ordering = "-created_at"
 
-        transactions = Transaction.objects.all()
-
-        today_transactions = transactions.filter(
-            created_at__date=today
-        )
-
-        successful = transactions.filter(status="SUCCESS")
-        failed = transactions.filter(status="FAILED")
-        pending = transactions.filter(status="PENDING")
-
-        successful_amount = (
-            successful.aggregate(total=Sum("amount"))["total"] or 0
-        )
-
-        return Response({
-            "total_transactions": transactions.count(),
-            "successful_transactions": successful.count(),
-            "failed_transactions": failed.count(),
-            "pending_transactions": pending.count(),
-            "successful_amount": successful_amount,
-            "today_transactions": today_transactions.count(),
-        })
+        return queryset.order_by(ordering, "-id").select_related("user")
